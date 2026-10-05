@@ -38,5 +38,5 @@ Files: README.md, README.zh-CN.md, LICENSE, docs/methodology.md, docs/demo.png, 
 
 - [x] Document assumptions, sample results, limitations and reproduction instructions.
 - [x] Fresh whole-project review; fix material issues with regression tests and green suite.
-- [ ] Create public lsj0914/meeting-pain-budget, push source and deploy GitHub Pages.
-- [ ] Verify latest CI/deployment, remote commit and live interactive results; only then complete the goal.
+- [x] Create public lsj0914/meeting-pain-budget, push source and deploy GitHub Pages.
+- [x] Verify latest CI/deployment, remote commit and live interactive results; only then complete the goal.

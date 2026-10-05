@@ -20,3 +20,9 @@ All added regressions pass on desktop and mobile, followed by the complete green
 The small native-DOM app keeps editor, result and language helpers in `src/main.ts`. The scoring engine, worker and exporters are separate. If the UI grows, the cost of this choice is extracting those UI modules.
 
 Automated browser coverage uses Chromium; native Safari and calendar-client import behavior are outside this matrix. Live deployment is verified separately after publication.
+
+## Live publication
+
+On 2026-10-05, both GitHub quality checks and Pages deployment passed for source commit `5a09a8bbd31436fb149a7f68359cf0b2eeace864`. The public page returned HTTP 200. The actual deployed UI showed the default 50% rotation and switched correctly between fixed/rotating ledgers. An independent Chromium run downloaded a real four-event calendar, observed zero page errors, and confirmed that the deployed JavaScript, worker and CSS exactly matched the local production build by SHA-256.
+
+[Quality run](https://github.com/lsj0914/meeting-pain-budget/actions/runs/37269921736) · [Deployment run](https://github.com/lsj0914/meeting-pain-budget/actions/runs/37269921757)
