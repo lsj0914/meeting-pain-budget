@@ -1,7 +1,7 @@
 # Verification record
 
 - 44 unit fixtures pass: literal time-zone/DST instants, full elapsed scoring, overnight windows, constraints, fairness, malformed configuration and portable exports.
-- 34 browser checks pass across desktop Chromium and a Chromium phone viewport. They exercise actual downloads/imports, invalid-input saving, rejected-draft recovery, safe text rendering, rapid edits, accessibility/overflow and feasibility labels.
+- 44 browser checks pass across desktop Chromium and a Chromium phone viewport. They exercise actual downloads/imports, invalid-input saving, rejected-draft recovery, safe text rendering, rapid edits, accessibility/overflow, feasibility labels and time-zone selection.
 - TypeScript validation and Vite production build pass. Full dependency audit reports zero vulnerabilities.
 - A local 12-person / 8-week / 180-minute unrestricted scenario produced eight rows in about 300 ms including worker/UI updates. This is an observed local benchmark, not a timing guarantee.
 
@@ -20,6 +20,10 @@ All added regressions pass on desktop and mobile, followed by the complete green
 The small native-DOM app keeps editor, result and language helpers in `src/main.ts`. The scoring engine, worker and exporters are separate. If the UI grows, the cost of this choice is extracting those UI modules.
 
 Automated browser coverage uses Chromium; native Safari and calendar-client import behavior are outside this matrix. Live deployment is verified separately after publication.
+
+## Populated time-zone selection
+
+A reported usability issue was reproduced: the native datalist filtered against the existing full time-zone value, so choosing another zone required clearing the field. A failing browser regression was added before replacing it with a searchable combobox. Its arrow opens the complete list without changing the current value; typed text filters the list. Participant and reference zones support direct replacement, keyboard selection, cancellation and saved selections. Ten new desktop/mobile checks pass, including accessibility and horizontal-overflow checks. The complete suite now passes 44 unit fixtures and 44 browser checks.
 
 ## Live publication
 

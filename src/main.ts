@@ -11,6 +11,7 @@ import { validateConfig } from "./engine";
 import { example } from "./examples";
 import { calendar, csv, markdown, parse, serialize } from "./documents";
 import { inside, localParts, offsetLabel, STEP } from "./time";
+import { bindTimeZonePicker, zoneField } from "./time-zone-picker";
 
 const KEY = "meeting-pain-budget:v1";
 let config = example(),
@@ -94,6 +95,7 @@ worker.onerror = () => {
 };
 
 const root = document.querySelector<HTMLDivElement>("#app")!;
+const closeTimeZonePicker = bindTimeZonePicker(root);
 function shell() {
   document.documentElement.lang = language === "zh" ? "zh-CN" : "en";
   root.innerHTML = `<a class="skip" href="#result">${t("Skip to results", "跳到结果")}</a>
@@ -104,7 +106,7 @@ function shell() {
   <section class="method" aria-labelledby="method-title"><div><span class="eyebrow">${t("THE SMALL PRINT, MADE READABLE", "规则说明")}</span><h2 id="method-title">${t("Fairness needs a definition.", "公平，需要说清楚。")}</h2><p>${t("These points describe inconvenience, not people’s worth. Adjust each person’s budget together before choosing a schedule.", "这些积分表示不便程度。先一起商量每个人的预算，再决定日程。")}</p></div><div class="policy-grid"><div><strong>0</strong><span>${t("Comfortable hours", "舒服时段")}</span></div><div><strong>2</strong><span>${t("Awake, outside hours", "清醒但不舒服")}</span></div><div><strong>8</strong><span>${t("During sleep", "睡眠时段")}</span></div><div><strong>+4</strong><span>${t("On a day off", "非工作日")}</span></div></div><p class="method-detail">${t("Points per hour, counted for the entire meeting in 15-minute segments. Sleep and day-off protection are hard constraints. Budgets are targets, not guarantees. The planner first reduces the largest (carried + new points) ÷ max(budget, 1), then total new points, then the spread of budget use. It searches a bounded set of schedules, so the result may not be globally optimal. A zero budget uses 1 in this comparison; any positive burden still exceeds that budget.", "以上均为每小时积分，按整场会议的每 15 分钟计算。保护睡眠和非工作日属于硬性限制。预算是目标，并非保证。首先降低最高的「历史 + 新增积分」÷ max(预算, 1)，再降低总新增积分和预算使用差距。算法搜索有限数量的日程，结果可能不是全局最优。零预算在比较中按 1 计算，但任何正积分都算超预算。")}</p></section>
   </main><footer><span>Meeting Pain Budget <span class="footer-dot">·</span> ${t("Built for a little more consideration.", "多一点体谅，少一点熬夜。")}</span><span>${t("Runs in your browser. No data is sent.", "数据留在浏览器，不会发送。")} <a href="https://github.com/lsj0914/meeting-pain-budget" target="_blank" rel="noopener">${t("Source", "源码")} ↗</a></span></footer>
   <dialog id="replace-dialog" aria-labelledby="replace-title" aria-describedby="replace-description"><span class="eyebrow">${t("KEEP YOUR WORK", "保留你的修改")}</span><h2 id="replace-title">${t("Replace your current setup?", "替换当前设置？")}</h2><p id="replace-description">${t("You have edited this setup. Download a copy first if you want to keep it, including unfinished edits.", "你已经修改了当前设置。可以先下载一份副本，未完成的编辑也会保留。")}</p><div><button data-action="cancel-replacement">${t("Keep editing", "继续编辑")}</button><button data-action="download-edits">${t("Download current edits", "下载当前编辑")}</button><button data-action="confirm-replacement">${t("Replace setup", "替换设置")}</button></div></dialog>
-  <input id="import-file" type="file" accept=".json,application/json" hidden><datalist id="zones">${["UTC", ...Intl.supportedValuesOf("timeZone")].map((z) => `<option value="${esc(z)}"></option>`).join("")}</datalist>`;
+  <input id="import-file" type="file" accept=".json,application/json" hidden>`;
   renderEditor();
   renderRecovery();
   renderResults();
@@ -120,9 +122,10 @@ function input(
   return `<label>${label}<input data-field="${field}" type="${type}" value="${esc(value)}" ${extra}></label>`;
 }
 function renderEditor() {
+  closeTimeZonePicker();
   document.querySelector("#editor")!.innerHTML =
     `<div class="meeting-fields">${input(t("Meeting name", "会议名称"), "title", config.title, "text", 'maxlength="120"')}
-  <div class="field-pair">${input(t("First date", "第一次会议"), "date", config.date, "date", 'min="2000-01-01" max="2099-12-31"')}${input(t("Reference time zone", "参考时区"), "referenceZone", config.referenceZone, "text", 'list="zones" autocomplete="off"')}</div>
+  <div class="field-pair">${input(t("First date", "第一次会议"), "date", config.date, "date", 'min="2000-01-01" max="2099-12-31"')}${zoneField(t("Reference time zone", "参考时区"), "referenceZone", config.referenceZone, language)}</div>
   <div class="field-pair">${input(t("Duration · minutes", "时长 · 分钟"), "duration", config.duration, "number", 'min="15" max="180" step="15"')}${input(t("Weekly meetings", "每周一次 · 共几次"), "occurrences", config.occurrences, "number", 'min="1" max="8" step="1"')}</div><p class="field-note">${t("Each week uses this reference zone’s calendar date.", "每周日期以参考时区为准。")}</p>
   <div class="protections"><label><input data-field="protectSleep" type="checkbox" ${config.protectSleep ? "checked" : ""}><span>${t("Protect sleep", "保护睡眠")}</span></label><label><input data-field="protectDays" type="checkbox" ${config.protectDays ? "checked" : ""}><span>${t("Protect days off", "保护非工作日")}</span></label></div></div>
   <div class="people-heading"><h3>${t("People", "参会人")} <span>${config.people.length}/12</span></h3><button class="text-button" data-action="add" ${config.people.length >= 12 ? "disabled" : ""}>+ ${t("Add person", "添加")}</button></div>
@@ -132,7 +135,7 @@ function renderEditor() {
         p,
         i,
       ) => `<article class="person" data-person="${esc(p.id)}"><div class="person-top"><span class="avatar color-${i % 4}" aria-hidden="true">${esc((p.name || "?").slice(0, 1).toUpperCase())}</span><span class="person-number">${t("PERSON", "参会人")} ${String(i + 1).padStart(2, "0")}</span><button class="remove" data-action="remove" aria-label="${esc(t("Remove ", "移除 ") + p.name)}" ${config.people.length <= 2 ? "disabled" : ""}>×</button></div>
-  <div class="field-pair">${input(t("Name", "姓名"), "name", p.name, "text", 'maxlength="80"')}${input(t("Time zone", "时区"), "zone", p.zone, "text", 'list="zones" autocomplete="off"')}</div>
+  <div class="field-pair">${input(t("Name", "姓名"), "name", p.name, "text", 'maxlength="80"')}${zoneField(t("Time zone", "时区"), "zone", p.zone, language)}</div>
   <div class="window-row"><span>${t("Comfortable hours", "舒服时段")}</span><div>${input(t("From", "开始"), "workStart", p.workStart, "time", 'step="900"')}${input(t("To", "结束"), "workEnd", p.workEnd, "time", 'step="900"')}</div></div>
   <div class="window-row"><span>${t("Sleep hours", "睡眠时段")}</span><div>${input(t("From", "开始"), "sleepStart", p.sleepStart, "time", 'step="900"')}${input(t("To", "结束"), "sleepEnd", p.sleepEnd, "time", 'step="900"')}</div></div>
   <fieldset class="days"><legend>${t("Working days", "工作日")}</legend>${weekdays()
