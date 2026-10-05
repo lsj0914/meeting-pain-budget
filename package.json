@@ -1,0 +1,25 @@
+{
+  "name": "meeting-pain-budget",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Share the inconvenience of cross-time-zone meetings.",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 4174",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "check": "npm test && npm run build && npm run test:e2e",
+    "format": "prettier --write ."
+  },
+  "engines": { "node": "^22.12.0 || >=24.0.0" },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.10.2",
+    "@playwright/test": "^1.56.0",
+    "prettier": "^3.9.9",
+    "typescript": "^5.9.3",
+    "vite": "^7.1.9",
+    "vitest": "^4.1.11"
+  }
+}
