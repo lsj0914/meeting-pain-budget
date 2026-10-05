@@ -177,9 +177,95 @@ test("reimports a real downloaded setup", async ({ page }) => {
   await page.getByRole("button", { name: "Save setup .json" }).click();
   const file = await d;
   await page.getByRole("button", { name: "Three cities", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Replace setup", exact: true })
+    .click();
   await page.locator("#import-file").setInputFiles((await file.path())!);
   await expect(page.locator('[data-field="title"]')).toHaveValue("My team");
   await expect(page.getByTestId("ledger").locator(".ledger-row")).toHaveCount(
     2,
   );
+});
+test("renders normalized time zones with surrounding whitespace", async ({
+  page,
+}) => {
+  await expect(page.getByTestId("ledger")).toBeVisible();
+  await page
+    .locator('[data-person="ny"] [data-field="zone"]')
+    .fill(" America/New_York ");
+  await expect(page.getByTestId("ledger")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Calendar .ics" }),
+  ).toBeEnabled();
+});
+test("confirms replacing edited settings and preserves edits when canceled", async ({
+  page,
+}) => {
+  await page.locator('[data-field="title"]').fill("My custom meeting");
+  await page.getByRole("button", { name: "Three cities", exact: true }).click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.getByRole("button", { name: "Keep editing", exact: true }).click();
+  await expect(page.locator('[data-field="title"]')).toHaveValue(
+    "My custom meeting",
+  );
+  await page.getByRole("button", { name: "Three cities", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Replace setup", exact: true })
+    .click();
+  await expect(page.getByTestId("ledger").locator(".ledger-row")).toHaveCount(
+    3,
+  );
+});
+test("import waits for confirmation before replacing edited settings", async ({
+  page,
+}) => {
+  await page.locator('[data-field="title"]').fill("Keep this title");
+  await page.locator("#import-file").setInputFiles("examples/night-shift.json");
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.getByRole("button", { name: "Keep editing", exact: true }).click();
+  await expect(page.locator('[data-field="title"]')).toHaveValue(
+    "Keep this title",
+  );
+});
+test("switches to an accurately labeled rotation if a fixed wall time becomes impossible", async ({
+  page,
+}) => {
+  const person = (id: string) => ({
+    id,
+    name: id,
+    zone: "America/New_York",
+    workStart: "09:00",
+    workEnd: "10:00",
+    sleepStart: "10:00",
+    sleepEnd: "09:00",
+    days: [0, 1, 2, 3, 4, 5, 6],
+    carriedPain: 0,
+    budget: 8,
+  });
+  const c = {
+    version: 1,
+    title: "DST boundary",
+    date: "2026-10-19",
+    referenceZone: "UTC",
+    duration: 60,
+    occurrences: 2,
+    protectSleep: true,
+    protectDays: true,
+    people: [person("A"), person("B")],
+  };
+  await page
+    .locator("#import-file")
+    .setInputFiles({
+      name: "dst.json",
+      mimeType: "application/json",
+      buffer: Buffer.from(JSON.stringify(c)),
+    });
+  await expect(page.getByTestId("ledger")).toBeVisible();
+  await page.getByRole("button", { name: "Fixed", exact: true }).click();
+  await page.locator('[data-field="occurrences"]').fill("4");
+  await expect(page.getByTestId("schedule")).toContainText("Rotating schedule");
+  await expect(
+    page.getByRole("button", { name: "Rotate", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByTestId("schedule")).toContainText("14:00");
 });

@@ -37,6 +37,6 @@ Files: src/main.ts (editor/results/language helpers), src/worker.ts, src/documen
 Files: README.md, README.zh-CN.md, LICENSE, docs/methodology.md, docs/demo.png, examples/_.json, .github/workflows/_.yml.
 
 - [x] Document assumptions, sample results, limitations and reproduction instructions.
-- [ ] Fresh whole-project review; fix material issues with regression tests and green suite.
+- [x] Fresh whole-project review; fix material issues with regression tests and green suite.
 - [ ] Create public lsj0914/meeting-pain-budget, push source and deploy GitHub Pages.
 - [ ] Verify latest CI/deployment, remote commit and live interactive results; only then complete the goal.

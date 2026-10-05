@@ -1634,3 +1634,40 @@ footer a {
   margin-top: 12px;
   color: var(--teal);
 }
+
+dialog {
+  max-width: 510px;
+  width: calc(100% - 40px);
+  padding: 28px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  color: var(--ink);
+  background: #fff;
+  box-shadow: 0 20px 80px #16363c30;
+}
+dialog::backdrop {
+  background: #16363c66;
+}
+dialog h2 {
+  font-size: 27px;
+  margin: 10px 0 15px;
+}
+dialog p {
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--muted);
+}
+dialog > div {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 22px;
+}
+dialog button {
+  font-size: 12px;
+}
+dialog button:last-child {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: white;
+}

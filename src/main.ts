@@ -25,6 +25,8 @@ let activeConfig: Config | null = null,
   pending = false,
   error = "";
 let allCandidates = false;
+let edited = false;
+let replacement: (() => void) | null = null;
 let timer: ReturnType<typeof setTimeout>;
 try {
   language = localStorage.getItem(KEY + ":language") === "zh" ? "zh" : "en";
@@ -32,6 +34,9 @@ try {
   if (raw) {
     try {
       config = parse(raw);
+      edited = !["two", "three", "night"].some(
+        (kind) => serialize(example(kind)) === serialize(config),
+      );
     } catch {
       rejected = raw;
     }
@@ -98,6 +103,7 @@ function shell() {
   <div id="recovery"></div><div class="workspace"><section class="editor-panel" aria-labelledby="editor-title"><div class="section-title"><span class="step">01</span><div><h2 id="editor-title">${t("Set the team", "设置团队")}</h2><p>${t("Every person has a different day.", "每个人的一天都不一样。")}</p></div></div><div id="editor"></div></section><section id="result" class="result-panel" aria-labelledby="result-title"><div class="section-title"><span class="step">02</span><div><h2 id="result-title">${t("Find the balance", "找个平衡点")}</h2><p>${t("Make the trade-off visible.", "让时间背后的取舍看得见。")}</p></div><span id="status" class="status" aria-live="polite"></span></div><div id="results"></div></section></div>
   <section class="method" aria-labelledby="method-title"><div><span class="eyebrow">${t("THE SMALL PRINT, MADE READABLE", "规则说明")}</span><h2 id="method-title">${t("Fairness needs a definition.", "公平，需要说清楚。")}</h2><p>${t("These points describe inconvenience, not people’s worth. Adjust each person’s budget together before choosing a schedule.", "这些积分表示不便程度。先一起商量每个人的预算，再决定日程。")}</p></div><div class="policy-grid"><div><strong>0</strong><span>${t("Comfortable hours", "舒服时段")}</span></div><div><strong>2</strong><span>${t("Awake, outside hours", "清醒但不舒服")}</span></div><div><strong>8</strong><span>${t("During sleep", "睡眠时段")}</span></div><div><strong>+4</strong><span>${t("On a day off", "非工作日")}</span></div></div><p class="method-detail">${t("Points per hour, counted for the entire meeting in 15-minute segments. Sleep and day-off protection are hard constraints. Budgets are targets, not guarantees. The planner first reduces the largest (carried + new points) ÷ max(budget, 1), then total new points, then the spread of budget use. It searches a bounded set of schedules, so the result may not be globally optimal. A zero budget uses 1 in this comparison; any positive burden still exceeds that budget.", "以上均为每小时积分，按整场会议的每 15 分钟计算。保护睡眠和非工作日属于硬性限制。预算是目标，并非保证。首先降低最高的「历史 + 新增积分」÷ max(预算, 1)，再降低总新增积分和预算使用差距。算法搜索有限数量的日程，结果可能不是全局最优。零预算在比较中按 1 计算，但任何正积分都算超预算。")}</p></section>
   </main><footer><span>Meeting Pain Budget <span class="footer-dot">·</span> ${t("Built for a little more consideration.", "多一点体谅，少一点熬夜。")}</span><span>${t("Runs in your browser. No data is sent.", "数据留在浏览器，不会发送。")} <a href="https://github.com/lsj0914/meeting-pain-budget" target="_blank" rel="noopener">${t("Source", "源码")} ↗</a></span></footer>
+  <dialog id="replace-dialog" aria-labelledby="replace-title" aria-describedby="replace-description"><span class="eyebrow">${t("KEEP YOUR WORK", "保留你的修改")}</span><h2 id="replace-title">${t("Replace your current setup?", "替换当前设置？")}</h2><p id="replace-description">${t("You have edited this setup. Download a copy first if you want to keep it, including unfinished edits.", "你已经修改了当前设置。可以先下载一份副本，未完成的编辑也会保留。")}</p><div><button data-action="cancel-replacement">${t("Keep editing", "继续编辑")}</button><button data-action="download-edits">${t("Download current edits", "下载当前编辑")}</button><button data-action="confirm-replacement">${t("Replace setup", "替换设置")}</button></div></dialog>
   <input id="import-file" type="file" accept=".json,application/json" hidden><datalist id="zones">${["UTC", ...Intl.supportedValuesOf("timeZone")].map((z) => `<option value="${esc(z)}"></option>`).join("")}</datalist>`;
   renderEditor();
   renderRecovery();
@@ -235,8 +241,8 @@ function renderRecovery() {
       ? ""
       : `<div class="recovery" data-testid="recovery"><div><strong>${t("Your saved draft needs attention.", "保存的草稿需要检查。")}</strong><p>${t("It could not be opened. The original is preserved; this page is showing an example until you replace it.", "草稿无法读取，原始内容已保留。当前显示示例，只有主动替换后才会覆盖。")}</p></div><button data-action="raw">${t("Download original", "下载原始内容")}</button><button data-action="replace">${t("Replace saved draft", "替换已存草稿")}</button></div>`;
 }
-function ribbon(slot: Slot, index: number) {
-  const p = config.people[index],
+function ribbon(slot: Slot, index: number, normalized: Config) {
+  const p = normalized.people[index],
     pain = slot.people[index],
     meeting = new Set<number>();
   for (let t0 = slot.start; t0 < slot.end; t0 += STEP)
@@ -254,14 +260,16 @@ function renderResults() {
     return;
   }
   const r = results,
-    p = (view === "fixed" ? r.fixed : r.rotation) ?? r.rotation;
+    c = activeConfig;
+  if (view === "fixed" && !r.fixed) view = "rotation";
+  const p = view === "fixed" ? r.fixed : r.rotation;
   const slot =
     r.candidates.find((s) => s.start === selected) ?? r.candidates[0];
   container.innerHTML = `${storageMessage ? `<p class="notice">${t("Browser storage is unavailable. Download your setup to keep it.", "浏览器存储不可用，请下载设置以保留。")}</p>` : ""}
-  <div class="card single"><div class="card-heading"><div><span class="eyebrow">${t("ONE MEETING, UP CLOSE", "先看一场会议")}</span><h3>${slot ? `${slot.reference.time} <small>${esc(zoneName(config.referenceZone))}</small>` : t("No shared window", "没有共同窗口")}</h3></div><span class="date-pill">${esc(config.date)}</span></div>
+  <div class="card single"><div class="card-heading"><div><span class="eyebrow">${t("ONE MEETING, UP CLOSE", "先看一场会议")}</span><h3>${slot ? `${slot.reference.time} <small>${esc(zoneName(c.referenceZone))}</small>` : t("No shared window", "没有共同窗口")}</h3></div><span class="date-pill">${esc(c.date)}</span></div>
   ${
     slot
-      ? `<div class="legend"><span><i class="comfortable"></i>${t("Comfortable", "舒服")}</span><span><i class="outside"></i>${t("Outside", "不舒服")}</span><span><i class="sleep"></i>${t("Sleep", "睡眠")}</span><span><i class="meeting"></i>${t("Meeting", "会议")}</span></div>${config.people.map((_, i) => ribbon(slot, i)).join("")}
+      ? `<div class="legend"><span><i class="comfortable"></i>${t("Comfortable", "舒服")}</span><span><i class="outside"></i>${t("Outside", "不舒服")}</span><span><i class="sleep"></i>${t("Sleep", "睡眠")}</span><span><i class="meeting"></i>${t("Meeting", "会议")}</span></div>${c.people.map((_, i) => ribbon(slot, i, c)).join("")}
   <details class="candidates" open><summary>${t("Try another time", "试试其他时间")} <small>${r.candidates.length} ${t("valid options", "个有效选项")}</small></summary><div class="candidate-buttons">${r.candidates
     .slice(0, allCandidates ? undefined : 8)
     .map(
@@ -276,8 +284,8 @@ function renderResults() {
   <div class="series-heading"><div><span class="eyebrow">${t("THE BIGGER PICTURE", "再看整个系列")}</span><h3>${t("Take turns, keep track.", "轮着来，记清楚。")}</h3></div><div class="view-tabs" role="group" aria-label="${t("Series comparison", "系列比较")}"><button data-view="rotation" class="${view === "rotation" ? "active" : ""}" aria-pressed="${view === "rotation"}">${t("Rotate", "轮换")}</button><button data-view="fixed" class="${view === "fixed" ? "active" : ""}" aria-pressed="${view === "fixed"}" ${r.fixed ? "" : "disabled"}>${t("Fixed", "固定")}</button></div></div>
   ${
     p
-      ? `<div class="comparison"><div><span>${t("Best fixed time", "最佳固定时间")}</span><strong>${r.fixed ? percent(r.fixed.worstRatio) : "—"}</strong><small>${t("highest budget use", "最高预算使用率")}</small></div><div class="recommended"><span>${t("Shared rotation", "分摊轮换")}</span><strong data-testid="worst-rotation">${percent(r.rotation!.worstRatio)}</strong><small>${t("highest budget use", "最高预算使用率")}</small></div></div>
-  <div class="card ledger" data-testid="ledger"><div class="card-heading"><h3>${t("The pain ledger", "不便账本")}</h3><span class="date-pill">${p.slots.length} ${t("weeks", "周")} · ${points(p.totalPain)} ${t("new pt", "新增分")}</span></div>${config.people
+      ? `${!r.fixed ? `<p class="notice">${t("No fixed reference time fits every week. Showing the rotating schedule.", "没有一个固定参考时间适用于每周，当前显示轮换日程。")}</p>` : ""}<div class="comparison"><div><span>${t("Best fixed time", "最佳固定时间")}</span><strong>${r.fixed ? percent(r.fixed.worstRatio) : "—"}</strong><small>${t("highest budget use", "最高预算使用率")}</small></div><div class="recommended"><span>${t("Shared rotation", "分摊轮换")}</span><strong data-testid="worst-rotation">${percent(r.rotation!.worstRatio)}</strong><small>${t("highest budget use", "最高预算使用率")}</small></div></div>
+  <div class="card ledger" data-testid="ledger"><div class="card-heading"><h3>${t("The pain ledger", "不便账本")}</h3><span class="date-pill">${p.slots.length} ${t("weeks", "周")} · ${points(p.totalPain)} ${t("new pt", "新增分")}</span></div>${c.people
     .map((person, i) => {
       const total = person.carriedPain + p.newPain[i],
         ratio = total / Math.max(person.budget, 1);
@@ -285,7 +293,7 @@ function renderResults() {
     })
     .join("")}
   <p class="ledger-note">${t("The shaded bar is carried burden; teal is new burden. Budgets cover the whole series.", "灰色为历史负担，青绿色为新增负担。预算覆盖整个会议系列。")}</p></div>
-  <div class="schedule-wrap"><table data-testid="schedule"><caption>${view === "fixed" ? t("Fixed schedule", "固定日程") : t("Rotating schedule", "轮换日程")} <small>${esc(config.referenceZone)}</small></caption><thead><tr><th scope="col">${t("Week / Reference", "周 / 参考时间")}</th>${config.people.map((x) => `<th scope="col">${esc(x.name)}</th>`).join("")}</tr></thead><tbody>${p.slots.map((s, i) => `<tr><th scope="row"><span class="week-number">${String(i + 1).padStart(2, "0")}</span><span>${s.reference.date}<b>${s.reference.time}</b><small>${offsetLabel(s.reference.offset)}</small></span></th>${s.people.map((x) => `<td>${x.start.time} → ${x.end.time}<small>${x.start.date}${x.start.date !== x.end.date ? " → " + x.end.date : ""}</small><small>${offsetLabel(x.start.offset)}${x.start.offset !== x.end.offset ? " → " + offsetLabel(x.end.offset) : ""} · ${points(x.points)} ${t("pt", "分")}</small></td>`).join("")}</tr>`).join("")}</tbody></table></div>
+  <div class="schedule-wrap"><table data-testid="schedule"><caption>${view === "fixed" ? t("Fixed schedule", "固定日程") : t("Rotating schedule", "轮换日程")} <small>${esc(c.referenceZone)}</small></caption><thead><tr><th scope="col">${t("Week / Reference", "周 / 参考时间")}</th>${c.people.map((x) => `<th scope="col">${esc(x.name)}</th>`).join("")}</tr></thead><tbody>${p.slots.map((s, i) => `<tr><th scope="row"><span class="week-number">${String(i + 1).padStart(2, "0")}</span><span>${s.reference.date}<b>${s.reference.time}</b><small>${offsetLabel(s.reference.offset)}</small></span></th>${s.people.map((x) => `<td>${x.start.time} → ${x.end.time}<small>${x.start.date}${x.start.date !== x.end.date ? " → " + x.end.date : ""}</small><small>${offsetLabel(x.start.offset)}${x.start.offset !== x.end.offset ? " → " + offsetLabel(x.end.offset) : ""} · ${points(x.points)} ${t("pt", "分")}</small></td>`).join("")}</tr>`).join("")}</tbody></table></div>
   <p class="series-note">${t("Rotation compares the whole series. The fixed plan keeps one reference-zone wall-clock time; UTC times can change with daylight saving.", "轮换比较整个系列的负担。固定方案保持参考时区钟表时间不变；夏令时变化时，UTC 时间可能改变。")}</p>`
       : `<div class="state-box unavailable"><h3>${t("No complete series fits these rules.", "当前规则无法生成完整系列。")}</h3><p>${t("No eligible slots on", "以下参考日期没有有效时段")} ${r.unavailableDates.join(", ")}.</p><small>${t("Protection rules stay in place. Adjust the setup before exporting a series.", "保护条件保持生效。调整设置后才能导出系列。")}</small></div>`
   }
@@ -302,11 +310,27 @@ function download(name: string, content: string, type: string) {
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+function requestReplacement(apply: () => void) {
+  if (!edited) {
+    apply();
+    return;
+  }
+  replacement = apply;
+  document.querySelector<HTMLDialogElement>("#replace-dialog")!.showModal();
+}
+root.addEventListener(
+  "cancel",
+  () => {
+    replacement = null;
+  },
+  true,
+);
 root.addEventListener("input", (e) => {
   const el = e.target as HTMLInputElement,
     field = el.dataset.field,
     id = el.closest<HTMLElement>("[data-person]")?.dataset.person;
   if (!field && el.dataset.day === undefined) return;
+  edited = true;
   if (id) {
     const p = config.people.find((x) => x.id === id)!;
     if (el.dataset.day !== undefined) {
@@ -331,10 +355,28 @@ root.addEventListener("click", (e) => {
   if (!el || el.disabled) return;
   const action = el.dataset.action;
   if (el.dataset.example) {
-    config = example(el.dataset.example);
-    view = "rotation";
-    renderEditor();
-    queue();
+    const kind = el.dataset.example;
+    requestReplacement(() => {
+      config = example(kind);
+      edited = false;
+      view = "rotation";
+      renderEditor();
+      queue();
+    });
+  } else if (action === "cancel-replacement") {
+    replacement = null;
+    document.querySelector<HTMLDialogElement>("#replace-dialog")!.close();
+  } else if (action === "download-edits") {
+    download(
+      "meeting-pain-budget-edits.json",
+      JSON.stringify(config, null, 2),
+      "application/json",
+    );
+  } else if (action === "confirm-replacement") {
+    const apply = replacement;
+    replacement = null;
+    document.querySelector<HTMLDialogElement>("#replace-dialog")!.close();
+    apply?.();
   } else if (action === "all-times") {
     allCandidates = !allCandidates;
     renderResults();
@@ -354,6 +396,7 @@ root.addEventListener("click", (e) => {
     shell();
     queue();
   } else if (action === "add") {
+    edited = true;
     config.people.push({
       ...example().people[0],
       id: crypto.randomUUID(),
@@ -364,6 +407,7 @@ root.addEventListener("click", (e) => {
     renderEditor();
     queue();
   } else if (action === "remove") {
+    edited = true;
     const id = el.closest<HTMLElement>("[data-person]")!.dataset.person;
     config.people = config.people.filter((p) => p.id !== id);
     renderEditor();
@@ -403,8 +447,7 @@ root.addEventListener("click", (e) => {
     !pending &&
     !error
   ) {
-    const p =
-      (view === "fixed" ? results.fixed : results.rotation) ?? results.rotation;
+    const p = view === "fixed" ? results.fixed : results.rotation;
     if (!p) return;
     const format = el.dataset.export;
     download(
@@ -429,10 +472,14 @@ root.addEventListener("change", async (e) => {
   if (!file) return;
   try {
     if (file.size > MAX_BYTES) throw new InputError("size");
-    config = parse(await file.text());
-    view = "rotation";
-    renderEditor();
-    queue();
+    const imported = parse(await file.text());
+    requestReplacement(() => {
+      config = imported;
+      edited = true;
+      view = "rotation";
+      renderEditor();
+      queue();
+    });
   } catch (e2) {
     revision++;
     clearTimeout(timer);
