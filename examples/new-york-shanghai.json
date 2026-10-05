@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "title": "Across the clock",
+  "date": "2026-10-19",
+  "referenceZone": "America/New_York",
+  "duration": 60,
+  "occurrences": 4,
+  "protectSleep": true,
+  "protectDays": true,
+  "people": [
+    {
+      "id": "ny",
+      "name": "Alex",
+      "zone": "America/New_York",
+      "workStart": "09:00",
+      "workEnd": "17:00",
+      "sleepStart": "22:00",
+      "sleepEnd": "07:00",
+      "days": [1, 2, 3, 4, 5],
+      "carriedPain": 0,
+      "budget": 8
+    },
+    {
+      "id": "sh",
+      "name": "Lin",
+      "zone": "Asia/Shanghai",
+      "workStart": "09:00",
+      "workEnd": "17:00",
+      "sleepStart": "22:00",
+      "sleepEnd": "07:00",
+      "days": [1, 2, 3, 4, 5],
+      "carriedPain": 0,
+      "budget": 8
+    }
+  ]
+}

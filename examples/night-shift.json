@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "title": "The night-shift handover",
+  "date": "2026-10-19",
+  "referenceZone": "UTC",
+  "duration": 60,
+  "occurrences": 4,
+  "protectSleep": true,
+  "protectDays": true,
+  "people": [
+    {
+      "id": "a",
+      "name": "Night crew",
+      "zone": "UTC",
+      "workStart": "22:00",
+      "workEnd": "06:00",
+      "sleepStart": "08:00",
+      "sleepEnd": "15:00",
+      "days": [1, 2, 3, 4, 5],
+      "carriedPain": 0,
+      "budget": 8
+    },
+    {
+      "id": "b",
+      "name": "Early crew",
+      "zone": "UTC",
+      "workStart": "06:00",
+      "workEnd": "14:00",
+      "sleepStart": "20:00",
+      "sleepEnd": "04:00",
+      "days": [1, 2, 3, 4, 5],
+      "carriedPain": 0,
+      "budget": 8
+    }
+  ]
+}
